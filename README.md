@@ -25,28 +25,28 @@ lsusb -t
 ⚙️ Configure VFIO
 /etc/modprobe.d/vfio.conf
 options vfio-pci ids=1002:67df,1002:aaf0 disable_vga=1
-Bind GPU + HDMI audio functions to VFIO.
+# Bind GPU + HDMI audio functions to VFIO.
 
 /etc/modprobe.d/blacklist.conf
 blacklist radeon
 blacklist amdgpu
 blacklist drm
-Prevent host drivers from grabbing GPU.
+# Prevent host drivers from grabbing GPU.
 
 /etc/modprobe.d/kvm.conf
 options kvm ignore_msrs=1 report_ignored_msrs=0
-Avoid MSR errors when passing GPU to VM.
+# Avoid MSR errors when passing GPU to VM.
 
 /etc/modules
 vfio
 vfio_iommu_type1
 vfio_pci
-Ensure VFIO modules load at boot.
+# Ensure VFIO modules load at boot.
 
 🔄 Rebuild Initramfs
 update-initramfs -u
 reboot
-Applies VFIO + blacklist configs.
+# Applies VFIO + blacklist configs.
 
 ✅ Verify Binding
 lspci -k -nn -d 1002:67df
@@ -55,7 +55,7 @@ lspci -k -nn -d 1002:67df
 🖥 VM Configuration
 Assign GPU PCI device(s) to Ubuntu VM
 Assign USB controller for input passthrough
-Boot VM with OVMF (UEFI) firmware
+# Boot VM with OVMF (UEFI) firmware
 
 🔎 Validation
 piKVM: Confirms real video output from GPU passthrough
@@ -83,7 +83,7 @@ Blacklisting snd_hda_intel is unnecessary.
 📦 Installation
 Download the required kernel from Releases and install:
 apt install ./pve-kernel-VERSION_amd64.deb
-Note: This fork uses tested scripts from fabianishere and proxmox. New kernels will only be released when they release updates.
+Note: This fork uses patched kernels from fabianishere and t2linux. New kernels will only be released when they release updates.
 
 🗑 Removal
 apt remove pve-kernel-6.5*t2 pve-headers-6.5*t2
