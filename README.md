@@ -80,23 +80,10 @@ Blacklisting snd_hda_intel is unnecessary.
 ✅ First documented success case of GPU passthrough on Mac Pro 7,1 under Proxmox VE, validated with piKVM.
 
 
-Proxmox Edge Kernels
-Custom Linux kernels for Proxmox VE 9 — forked to add support for T2 Macs.This fork contains CI setup to compile kernels using scripts and documentation from:
-fabianishere/pve-edge-kernel
-proxmox/pve-kernel
-t2linux/linux-t2-patches
-See the t2linux wiki for additional help.Fan control guide: here.
-
 📦 Installation
 Download the required kernel from Releases and install:
 apt install ./pve-kernel-VERSION_amd64.deb
 Note: This fork uses tested scripts from fabianishere and proxmox. New kernels will only be released when they release updates.
-
-🛠 Building Manually
-Refer to the CI workflow.
-
-Prerequisites:
-apt install devscripts debhelper equivs git
 
 🗑 Removal
 apt remove pve-kernel-6.5*t2 pve-headers-6.5*t2
