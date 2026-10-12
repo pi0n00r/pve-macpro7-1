@@ -1,93 +1,131 @@
-# GPU Passthrough on Mac Pro 7,1 (Proxmox VE 9.1.2)
+# GPU Passthrough on Mac Pro 7,1 with Proxmox VE
 
-This repository documents the first successful case of **GPU passthrough** on the Mac Pro 7,1 under Proxmox VE, validated with piKVM.
+This fork tracks
+[AdityaGarg8/pve-edge-kernel-t2](https://github.com/AdityaGarg8/pve-edge-kernel-t2)
+and retains a field-tested GPU-passthrough guide for the 2019 Mac Pro 7,1.
 
----
+The build source follows upstream. Installable T2 kernel and header packages are
+published on the
+[upstream releases page](https://github.com/AdityaGarg8/pve-edge-kernel-t2/releases).
 
-## 🖥 Environment Setup
-- **Hardware:** Mac Pro 7,1 (2019)
-- **GPU:** AMD RX 580 / Pro 580X
-- **Hypervisor:** Proxmox VE 9.1.2 (installed from 9.1.1 ISO, upgraded via `apt`)
-- **Kernel:** 6.17.2‑2‑pve‑t2 (AdiityaGarg8’s T2‑patched kernel)
-- **Validation:** piKVM for video output + USB passthrough for input
+## Validated baseline
 
----
+The passthrough procedure was originally validated with:
 
-## 🔍 Identify Devices
+- Hardware: Mac Pro 7,1 (2019)
+- GPU: AMD RX 580 / Pro 580X
+- Hypervisor: Proxmox VE 9.1.2, upgraded from the 9.1.1 ISO
+- Kernel: `6.17.2-2-pve-t2`
+- Validation: piKVM video output and USB-controller passthrough
+
+This records a known-good baseline; it does not claim that every newer kernel
+has been qualified on this hardware.
+
+## Install a T2 kernel
+
+Download the matching kernel and header packages from the upstream release you
+intend to run, then install the downloaded files with `apt`. Current releases
+use `proxmox-kernel-*` and `proxmox-headers-*` package names.
+
+```bash
+sudo apt install ./proxmox-kernel-VERSION_amd64.deb \
+  ./proxmox-headers-VERSION_amd64.deb
+```
+
+Keep a previously bootable kernel installed and retain remote-console access
+until the new kernel and passthrough configuration have been verified.
+
+## Identify devices
+
 ```bash
 lspci -nn | grep -i amd
-# Confirms GPU PCI IDs (e.g. 1002:67df)
-
 lspci | grep USB
 lsusb -t
-# Lists USB controllers for passthrough (keyboard/mouse)
+```
 
-⚙️ Configure VFIO
-/etc/modprobe.d/vfio.conf
+Confirm the actual GPU and HDMI-audio PCI IDs before editing `vfio.conf`. The
+validated RX 580 example used `1002:67df` and `1002:aaf0`; do not assume those
+IDs match another GPU.
+
+## Configure VFIO
+
+Create or update `/etc/modprobe.d/vfio.conf`:
+
+```text
 options vfio-pci ids=1002:67df,1002:aaf0 disable_vga=1
-# Bind GPU + HDMI audio functions to VFIO.
+```
 
-/etc/modprobe.d/blacklist.conf
+The validated host prevented its graphics drivers from claiming the passthrough
+GPU using `/etc/modprobe.d/blacklist.conf`:
+
+```text
 blacklist radeon
 blacklist amdgpu
 blacklist drm
-# Prevent host drivers from grabbing GPU.
+```
 
-/etc/modprobe.d/kvm.conf
+These blacklist entries affect the host globally. Apply them only when the host
+must not use the affected GPU and an independent console such as piKVM is
+available.
+
+Create or update `/etc/modprobe.d/kvm.conf`:
+
+```text
 options kvm ignore_msrs=1 report_ignored_msrs=0
-# Avoid MSR errors when passing GPU to VM.
+```
 
-/etc/modules
+Ensure `/etc/modules` contains:
+
+```text
 vfio
 vfio_iommu_type1
 vfio_pci
-# Ensure VFIO modules load at boot.
+```
 
-🔄 Rebuild Initramfs
-update-initramfs -u
-reboot
-# Applies VFIO + blacklist configs.
+Rebuild the initramfs and reboot:
 
-✅ Verify Binding
+```bash
+sudo update-initramfs -u
+sudo reboot
+```
+
+## Verify binding
+
+```bash
 lspci -k -nn -d 1002:67df
-# Confirms GPU bound to vfio-pci
+```
 
-🖥 VM Configuration
-Assign GPU PCI device(s) to Ubuntu VM
-Assign USB controller for input passthrough
-# Boot VM with OVMF (UEFI) firmware
+The selected GPU should report `vfio-pci` as its in-use kernel driver.
 
-🔎 Validation
-piKVM: Confirms real video output from GPU passthrough
-USB passthrough: Provides keyboard/mouse input
+## Configure and validate the VM
 
-Inside Ubuntu VM:
-glxinfo | grep "renderer"
-# Shows AMD Radeon RX 580 (hardware acceleration)
+1. Use OVMF/UEFI firmware for the guest.
+2. Assign the GPU and its required companion functions to the VM.
+3. Assign the intended USB controller when direct keyboard and mouse input are
+   required.
+4. Verify physical video output through piKVM.
+5. In a Linux guest, verify hardware rendering:
 
-📓 Notes
-RDP sessions show CPU rendering (llvmpipe), but GPU acceleration is active in VM.
-piKVM provides direct proof of GPU output.
-Setup offloads graphics workloads from CPU, improving overall VM performance.
+```bash
+glxinfo | grep renderer
+```
 
-🔊 Audio
-GNOME RDP sessions show CPU rendering, but audio still comes from the AMD GPU’s HDMI/DP audio function.
-RDP forwards audio independently of graphics, so passthrough audio remains intact.
-Blacklisting snd_hda_intel is unnecessary.
+The validated Ubuntu guest reported the AMD Radeon RX 580 renderer. An RDP
+session can report `llvmpipe` even while the physical guest display uses GPU
+acceleration. RDP also forwards audio independently, so blacklisting
+`snd_hda_intel` was not required by the validated setup.
 
-🎉 Achievement
+## Remove a kernel
 
-✅ First documented success case of GPU passthrough on Mac Pro 7,1 under Proxmox VE, validated with piKVM.
+Remove only the specific superseded kernel and header packages after another
+kernel has been verified bootable:
 
+```bash
+sudo apt remove proxmox-kernel-VERSION proxmox-headers-VERSION
+```
 
-📦 Installation
-Download the required kernel from Releases and install:
-apt install ./pve-kernel-VERSION_amd64.deb
-Note: This fork uses patched kernels from fabianishere and t2linux. New kernels will only be released when they release updates.
+## Credits
 
-🗑 Removal
-apt remove pve-kernel-6.5*t2 pve-headers-6.5*t2
-
-🙏 Credits
-fabianishere
-t2linux
+- [AdityaGarg8/pve-edge-kernel-t2](https://github.com/AdityaGarg8/pve-edge-kernel-t2)
+- [fabianishere/pve-edge-kernel](https://github.com/fabianishere/pve-edge-kernel)
+- [t2linux](https://wiki.t2linux.org/)
