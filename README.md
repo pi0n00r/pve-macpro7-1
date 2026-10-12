@@ -21,6 +21,11 @@ The passthrough procedure was originally validated with:
 This records a known-good baseline; it does not claim that every newer kernel
 has been qualified on this hardware.
 
+### Known limitations
+
+Wi-Fi and Bluetooth did not work in the validated installation. This guide does
+not claim or qualify support for either interface.
+
 ## Install a T2 kernel
 
 Download the matching kernel and header packages from the upstream release you
